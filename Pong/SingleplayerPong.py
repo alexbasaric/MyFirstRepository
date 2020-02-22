@@ -20,6 +20,8 @@ STAT_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 50)
 SCORE_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 160)
 
 class Board:
+    WIDTH = 10
+    LENGTH = 140
     def __init__(self, x, y):
         self.y = y
         self.x = x
@@ -31,11 +33,11 @@ class Board:
         elif direction == 'down' and self.y <= 460:
             self.y += self.vel
 
-    def draw(self, WIN):
-        pygame.draw.rect(WIN, (255, 255, 255), (self.x, self.y, 10, 140))
+    def draw(self, win):
+        pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, self.WIDTH, self.LENGTH))
 
 class Ball:
-    def __init__(self, difficulty):
+    def __init__(self):
         self.x = 346
         self.y = 300
         self.vel = 0.35  # 0.35
@@ -83,6 +85,44 @@ class Ball:
         self.vel = 0.35 # 0.35
 
 
+class StartBox:
+    def __init__(self, line1, line2):
+        self.colorBlack = (255, 255, 255)
+        self.colorOther = (200, 200, 200)
+        self.x = 350 - 103
+        self.y = 300 - 103
+        self.w = 206
+        self.h = 206
+        self.line1 = line1
+        self.line2 = line2
+
+
+
+
+    def wait_for_click(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                raise Exception("User wants to quit")
+
+        pygame.draw.rect(WIN, self.colorBlack, (self.x, self.w, self.w, self.h))
+        pygame.draw.rect(WIN, self.colorOther, (250, 200, 200, 200))
+
+        text = STAT_FONT.render(self.line1, 1, (32, 32, 32))
+        WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
+        text = STAT_FONT.render(self.line2, 1, (32, 32, 32))
+        WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
+
+        mousepos = pygame.mouse.get_pos()
+        pygame.display.flip()
+        #todo correct mousepos limits to match start box boundaries
+        if mousepos[0] > 247 and mousepos[0] < 453 and mousepos[1] > 198 and mousepos[1] < 405:
+            for event in pygame.event.get():
+                if event.type == pygame.MOUSEBUTTONUP:
+                    return True
+
+
+
+
 def draw_game(WIN, player1_board, ball, player2_board, player1_score, player2_score):
     WIN.fill([32, 32, 32])
 
@@ -102,6 +142,8 @@ def draw_game(WIN, player1_board, ball, player2_board, player1_score, player2_sc
     ball.draw(WIN)
 
 
+
+
 def main():
 
     global WIN
@@ -117,160 +159,103 @@ def main():
 
     score2 = 0
     score1 = 0
-    ball = Ball(1)
+    ball = Ball()
     justonce = True
     end = False
+
+    play_until = 3
     begin = False
-    playUntil = 7
-    playAgain = True
     run = True
 
-    while playAgain:
-        while run:
+    while run:
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                run = False
+        try:
+            start_box = StartBox('CLICK', 'TO BEGIN')
+
+            while not begin:
+                draw_game(WIN, player, ball, computer, score1, score2)
+                begin = start_box.wait_for_click()
+
+        except Exception as err:
+            run = False
+
+        output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
+
+        if output[0] > 0.5:  # we use a tanh activation function so result will be between -1 and 1. if over 0.5 jump (should the bird jump? yes or no)
+            computer.move('up')
+        elif output[0] <= -0.5:
+            computer.move('down')
+
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_w] or keys[pygame.K_KP8] or keys[pygame.K_UP]:
+            player.move('up')
+        if keys[pygame.K_s] or keys[pygame.K_KP2] or keys[pygame.K_DOWN]:
+            player.move('down')
+
+        if justonce:
+            ball.first_move()
+            justonce = False
+
+        ball.move()
+        if ball.y <= 0 or ball.y >= 590:
+            ball.bounce()
+
+        if ball.x <= 0:
+            score2 += 1
+            justonce = True
+            ball.reset()
+
+        if ball.x >= 690:
+            score1 += 1
+            justonce = True
+            ball.reset()
+
+        try:
+            if ball.vel <= 0.9:
+                if player.x + 10 == int(ball.x):
+                    for i in range(int(player.y), int(player.y + 141)):
+                        if int(ball.y) == i:
+                            ball.vertical_bounce()
+
+                if computer.x == int(ball.x) + 10:
+                    for i in range(int(computer.y), int(computer.y + 141)):
+                        if int(ball.y) == i:
+                            ball.vertical_bounce()
+            else:
+                if player.x + 10 >= int(ball.x):
+                    for i in range(int(player.y), int(player.y + 141)):
+                        if int(ball.y) == i:
+                            ball.vertical_bounce()
+
+                if computer.x <= int(ball.x) + 10:
+                    for i in range(int(computer.y), int(computer.y + 141)):
+                        if int(ball.y) == i:
+                            ball.vertical_bounce()
+
+            draw_game(WIN, player, ball, computer, score1, score2)
+            pygame.display.flip()
+        except:
+            pass
+
+        if score1 == play_until or score2 == play_until:
+            begin = False
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
-                    playAgain = False
-
-            while begin == False:
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        begin = True
-                        run = False
-                        playAgain = False
-
-                draw_game(WIN, player, ball, computer, score1, score2)
-
-                pygame.draw.rect(WIN, (255, 255, 255), (350 - 103, 300 - 103, 206, 206))
-                pygame.draw.rect(WIN, (200, 200, 200), (250, 200, 200, 200))
-
-                text = STAT_FONT.render('CLICK TO', 1, (32, 32, 32))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height()/2))
-                text = STAT_FONT.render('BEGIN', 1, (32, 32, 32))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
-
-                mousepos = pygame.mouse.get_pos()
-
-                if mousepos[0] > 247 and mousepos[0] < 453 and mousepos[1] > 198 and mousepos[1] < 405:
-                    for event in pygame.event.get():
-                        if event.type == pygame.MOUSEBUTTONUP:
-                            begin = True
-                            run = True
-
-                    pygame.draw.rect(WIN, (0, 0, 0), (350 - 103, 300 - 103, 206, 206))
-                    pygame.draw.rect(WIN, (55, 55, 55), (250, 200, 200, 200))
-
-                    text = STAT_FONT.render('CLICK TO', 1, (255, 255, 255))
-                    WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
-                    text = STAT_FONT.render('BEGIN', 1, (255, 255, 255))
-                    WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
-                else:
-                    pygame.draw.rect(WIN, (255, 255, 255), (350 - 103, 300 - 103, 206, 206))
-                    pygame.draw.rect(WIN, (200, 200, 200), (250, 200, 200, 200))
-
-                    text = STAT_FONT.render('CLICK TO', 1, (32, 32, 32))
-                    WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
-                    text = STAT_FONT.render('BEGIN', 1, (32, 32, 32))
-                    WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
-
-                pygame.display.flip()
-
-            output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
-
-            if output[0] > 0.5:  # we use a tanh activation function so result will be between -1 and 1. if over 0.5 jump (should the bird jump? yes or no)
-                computer.move('up')
-            elif output[0] <= -0.5:
-                computer.move('down')
-
-            keys = pygame.key.get_pressed()
-
-            if keys[pygame.K_w] or keys[pygame.K_KP8] or keys[pygame.K_UP]:
-                player.move('up')
-            if keys[pygame.K_s] or keys[pygame.K_KP2] or keys[pygame.K_DOWN]:
-                player.move('down')
-
-            if justonce:
-                ball.first_move()
-                justonce = False
-
-            ball.move()
-            if ball.y <= 0 or ball.y >= 590:
-                ball.bounce()
-
-            if ball.x <= 0:
-                score2 += 1
-                justonce = True
-                ball.reset()
-
-            if ball.x >= 690:
-                score1 += 1
-                justonce = True
-                ball.reset()
-
             try:
-                if ball.vel <= 0.9:
-                    if player.x + 10 == int(ball.x):
-                        for i in range(int(player.y), int(player.y + 141)):
-                            if int(ball.y) == i:
-                                ball.vertical_bounce()
-
-                    if computer.x == int(ball.x) + 10:
-                        for i in range(int(computer.y), int(computer.y + 141)):
-                            if int(ball.y) == i:
-                                ball.vertical_bounce()
-                else:
-                    if player.x + 10 >= int(ball.x):
-                        for i in range(int(player.y), int(player.y + 141)):
-                            if int(ball.y) == i:
-                                ball.vertical_bounce()
-
-                    if computer.x <= int(ball.x) + 10:
-                        for i in range(int(computer.y), int(computer.y + 141)):
-                            if int(ball.y) == i:
-                                ball.vertical_bounce()
-
-                draw_game(WIN, player, ball, computer, score1, score2)
-                pygame.display.flip()
-            except:
-                pass
-
-            if score1 == playUntil or score2 == playUntil:
-                end = True
+                while not begin:
+                    start_box = StartBox('GAME OVER', 'Another?')
+                    draw_game(WIN, player, ball, computer, score1, score2)
+                    begin = start_box.wait_for_click()
+                    run = True
+                    score1 = 0
+                    score2 = 0
+            except Exception as err:
                 run = False
-
-        while end == True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    end = False
-                    playAgain = False
-
-            draw_game(WIN, player, ball, computer, score1, score2)
-
-            mousepos = pygame.mouse.get_pos()
-
-            if mousepos[0] > 247 and mousepos[0] < 453 and mousepos[1] > 198 and mousepos[1] < 405:
-                for event in pygame.event.get():
-                    if event.type == pygame.MOUSEBUTTONUP:
-                        end = False
-
-                pygame.draw.rect(WIN, (0, 0, 0), (350 - 103, 300 - 103, 206, 206))
-                pygame.draw.rect(WIN, (55, 55, 55), (250, 200, 200, 200))
-
-                text = FINAL_FONT.render('GAME OVER', 1, (255, 255, 255))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
-                text = MAIN_FONT.render('Click to play again', 1, (255, 255, 255))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
-
-            else:
-                pygame.draw.rect(WIN, (255, 255, 255), (350 - 103, 300 - 103, 206, 206))
-                pygame.draw.rect(WIN, (200, 200, 200), (250, 200, 200, 200))
-
-                text = FINAL_FONT.render('GAME OVER', 1, (32, 32, 32))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
-                text = MAIN_FONT.render('Click to play again', 1, (32, 32, 32))
-                WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
-
-            pygame.display.flip()
 
 main()
 
