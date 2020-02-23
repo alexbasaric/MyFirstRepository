@@ -8,7 +8,7 @@ import math
 import pickle
 pygame.font.init()
 
-WIN_WIDTH = 400
+WIN_WIDTH = 900
 WIN_HEIGHT = 600
 
 WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
@@ -19,16 +19,21 @@ FINAL_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 43)
 STAT_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 50)
 SCORE_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 160)
 
-
 COLOR_BLACK = (255, 255, 255)
 COLOR_WHITE = (200, 200, 200)
 COLOR_GREY = (128, 128, 128)
 COLOR_OTHER = (32, 32, 32)
 COLOR_64 = (64, 64, 64)
 
+score1 = 0
+score2 = 0
+PLAY_UNTIL = 5
+
+
 class Board:
     WIDTH = 10
     LENGTH = 140
+
     def __init__(self, x, y):
         self.y = y
         self.x = x
@@ -37,11 +42,12 @@ class Board:
     def move(self, direction):
         if direction == 'up' and self.y >= 0:
             self.y -= self.vel
-        elif direction == 'down' and self.y <= 460:
+        elif direction == 'down' and self.y <= WIN_HEIGHT - self.LENGTH:
             self.y += self.vel
 
     def draw(self, win):
         pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, self.WIDTH, self.LENGTH))
+
 
 class Ball:
     def __init__(self):
@@ -78,10 +84,30 @@ class Ball:
             self.x += self.vel * math.sin(tilt_radians)
             self.y -= self.vel * math.cos(tilt_radians)
 
-    def move(self):
+    def move(self, just_once):
+        if just_once:
+            self.first_move()
+
+        global score1
+        global score2
         tilt_radians = math.radians(self.tilt)
         self.x += self.vel * math.sin(tilt_radians)
         self.y -= self.vel * math.cos(tilt_radians)
+        if self.y <= 0 or self.y >= WIN_HEIGHT:
+            self.bounce()
+
+        ret = False
+        if self.x <= 0:
+            self.reset()
+            score2 += 1
+            ret = True
+
+        if self.x >= WIN_WIDTH:
+            self.reset()
+            score1 += 1
+            ret = True
+
+        return ret
 
     def reset(self):
         self.tilt = random.randrange(45, 135)
@@ -125,6 +151,7 @@ class StartBox:
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONUP or event.type == pygame.MOUSEBUTTONUP:
                     return True
+
 
 def draw_title(win):
     win.fill(COLOR_OTHER)
@@ -170,6 +197,8 @@ def make_player_mover(player):
 def main():
 
     global WIN
+    global score1
+    global score2
     nets = []
     with open('TheAI.pickle', 'rb') as pickle_file:
         x = pickle.load(pickle_file)
@@ -177,13 +206,9 @@ def main():
 
     computer = Board(WIN_WIDTH - 30, 230)
     player = Board(20, 230)
-
-    score2 = 0
-    score1 = 0
     ball = Ball()
-    justonce = True
+    just_once = True
 
-    play_until = 3
     begin = False
     run = True
 
@@ -194,54 +219,34 @@ def main():
 
         make_computer_move(nets, computer, ball)
         make_player_mover(player)
+        just_once = ball.move(just_once)
 
-        if justonce:
-            ball.first_move()
-            justonce = False
+        if ball.vel <= 0.9:
+            if player.x + Board.WIDTH == int(ball.x):
+                for i in range(int(player.y), int(player.y + Board.LENGTH)):
+                    if int(ball.y) == i:
+                        ball.vertical_bounce()
 
-        ball.move()
+            if computer.x == int(ball.x) + Board.WIDTH:
+                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
+                    if int(ball.y) == i:
+                        ball.vertical_bounce()
+        else:
+            if player.x + 10 >= int(ball.x):
+                for i in range(int(player.y), int(player.y + Board.LENGTH)):
+                    if int(ball.y) == i:
+                        ball.vertical_bounce()
 
-        if ball.y <= 0 or ball.y >= WIN_HEIGHT:
-            ball.bounce()
+            if computer.x <= int(ball.x) + Board.WIDTH:
+                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
+                    if int(ball.y) == i:
+                        ball.vertical_bounce()
 
-        if ball.x <= 0:
-            score2 += 1
-            justonce = True
-            ball.reset()
+        draw_game(WIN, player, ball, computer, score1, score2)
 
-        if ball.x >= WIN_WIDTH:
-            score1 += 1
-            justonce = True
-            ball.reset()
+        pygame.display.flip()
 
-        try:
-            if ball.vel <= 0.9:
-                if player.x + 10 == int(ball.x):
-                    for i in range(int(player.y), int(player.y + 141)):
-                        if int(ball.y) == i:
-                            ball.vertical_bounce()
-
-                if computer.x == int(ball.x) + 10:
-                    for i in range(int(computer.y), int(computer.y + 141)):
-                        if int(ball.y) == i:
-                            ball.vertical_bounce()
-            else:
-                if player.x + 10 >= int(ball.x):
-                    for i in range(int(player.y), int(player.y + 141)):
-                        if int(ball.y) == i:
-                            ball.vertical_bounce()
-
-                if computer.x <= int(ball.x) + 10:
-                    for i in range(int(computer.y), int(computer.y + 141)):
-                        if int(ball.y) == i:
-                            ball.vertical_bounce()
-
-            draw_game(WIN, player, ball, computer, score1, score2)
-            pygame.display.flip()
-        except:
-            pass
-
-        game_over = score1 == play_until or score2 == play_until
+        game_over = score1 == PLAY_UNTIL or score2 == PLAY_UNTIL
 
         if not begin or game_over:
             begin = False
@@ -254,6 +259,7 @@ def main():
                     score2 = 0
             except Exception as err:
                 run = False
+
 
 main()
 
