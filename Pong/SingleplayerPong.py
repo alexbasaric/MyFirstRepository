@@ -8,7 +8,7 @@ import math
 import pickle
 pygame.font.init()
 
-WIN_WIDTH = 1200
+WIN_WIDTH = 400
 WIN_HEIGHT = 600
 
 WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
@@ -92,13 +92,17 @@ class Ball:
 
 
 class StartBox:
-    def __init__(self, width, height, line1, line2):
+    def __init__(self, width, height, game_over):
         self.x = WIN_WIDTH/2 - width/2
         self.y = WIN_HEIGHT/2 - height/2
         self.w = width
         self.h = height
-        self.line1 = line1
-        self.line2 = line2
+        if game_over:
+            self.line1 = "Game Over"
+            self.line2 = "Click to play another"
+        else:
+            self.line1 = "Click here"
+            self.line2 = "to start game"
 
     def wait_for_click(self):
         for event in pygame.event.get():
@@ -119,9 +123,8 @@ class StartBox:
 
         if self.x < mousepos[0] < self.x + self.w and self.y < mousepos[1] < self.y + self.h:
             for event in pygame.event.get():
-                if event.type == pygame.MOUSEBUTTONUP:
+                if event.type == pygame.MOUSEBUTTONUP or event.type == pygame.MOUSEBUTTONUP:
                     return True
-
 
 def draw_title(win):
     win.fill(COLOR_OTHER)
@@ -145,6 +148,25 @@ def draw_game(win, player1_board, ball, player2_board, player1_score, player2_sc
     ball.draw(win)
 
 
+def make_computer_move(nets, computer, ball):
+    output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
+
+    if output[
+        0] > 0.5:  # we use a tanh activation function so result will be between -1 and 1. if over 0.5 jump (should the bird jump? yes or no)
+        computer.move('up')
+    elif output[0] <= -0.5:
+        computer.move('down')
+
+
+def make_player_mover(player):
+    keys = pygame.key.get_pressed()
+
+    if keys[pygame.K_w] or keys[pygame.K_KP8] or keys[pygame.K_UP]:
+        player.move('up')
+    if keys[pygame.K_s] or keys[pygame.K_KP2] or keys[pygame.K_DOWN]:
+        player.move('down')
+
+
 def main():
 
     global WIN
@@ -166,37 +188,19 @@ def main():
     run = True
 
     while run:
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
 
-        while not begin:
-            start_box = StartBox(250, 350, 'CLICK', 'TO BEGIN')
-            draw_game(WIN, player, ball, computer, score1, score2)
-            begin = start_box.wait_for_click()
-
-
-
-        output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
-
-        if output[0] > 0.5:  # we use a tanh activation function so result will be between -1 and 1. if over 0.5 jump (should the bird jump? yes or no)
-            computer.move('up')
-        elif output[0] <= -0.5:
-            computer.move('down')
-
-        keys = pygame.key.get_pressed()
-
-        if keys[pygame.K_w] or keys[pygame.K_KP8] or keys[pygame.K_UP]:
-            player.move('up')
-        if keys[pygame.K_s] or keys[pygame.K_KP2] or keys[pygame.K_DOWN]:
-            player.move('down')
+        make_computer_move(nets, computer, ball)
+        make_player_mover(player)
 
         if justonce:
             ball.first_move()
             justonce = False
 
         ball.move()
+
         if ball.y <= 0 or ball.y >= WIN_HEIGHT:
             ball.bounce()
 
@@ -237,15 +241,13 @@ def main():
         except:
             pass
 
-        if score1 == play_until or score2 == play_until:
+        game_over = score1 == play_until or score2 == play_until
+
+        if not begin or game_over:
             begin = False
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    run = False
             try:
                 while not begin:
-                    start_box = StartBox(350,250,'GAME OVER', 'Another?')
-                    draw_game(WIN, player, ball, computer, score1, score2)
+                    start_box = StartBox(350, 250, game_over)
                     begin = start_box.wait_for_click()
                     run = True
                     score1 = 0
