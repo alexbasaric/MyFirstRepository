@@ -84,7 +84,7 @@ class Ball:
             self.x += self.vel * math.sin(tilt_radians)
             self.y -= self.vel * math.cos(tilt_radians)
 
-    def move(self, just_once):
+    def move(self, just_once, computer, player):
         if just_once:
             self.first_move()
 
@@ -106,6 +106,27 @@ class Ball:
             self.reset()
             score1 += 1
             ret = True
+
+        if self.vel <= 0.9:
+            if player.x + Board.WIDTH == int(self.x):
+                for i in range(int(player.y), int(player.y + Board.LENGTH)):
+                    if int(self.y) == i:
+                        self.vertical_bounce()
+
+            if computer.x == int(self.x) + Board.WIDTH:
+                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
+                    if int(self.y) == i:
+                        self.vertical_bounce()
+        else:
+            if player.x + 10 >= int(self.x):
+                for i in range(int(player.y), int(player.y + Board.LENGTH)):
+                    if int(self.y) == i:
+                        self.vertical_bounce()
+
+            if computer.x <= int(self.x) + Board.WIDTH:
+                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
+                    if int(self.y) == i:
+                        self.vertical_bounce()
 
         return ret
 
@@ -219,28 +240,7 @@ def main():
 
         make_computer_move(nets, computer, ball)
         make_player_mover(player)
-        just_once = ball.move(just_once)
-
-        if ball.vel <= 0.9:
-            if player.x + Board.WIDTH == int(ball.x):
-                for i in range(int(player.y), int(player.y + Board.LENGTH)):
-                    if int(ball.y) == i:
-                        ball.vertical_bounce()
-
-            if computer.x == int(ball.x) + Board.WIDTH:
-                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
-                    if int(ball.y) == i:
-                        ball.vertical_bounce()
-        else:
-            if player.x + 10 >= int(ball.x):
-                for i in range(int(player.y), int(player.y + Board.LENGTH)):
-                    if int(ball.y) == i:
-                        ball.vertical_bounce()
-
-            if computer.x <= int(ball.x) + Board.WIDTH:
-                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
-                    if int(ball.y) == i:
-                        ball.vertical_bounce()
+        just_once = ball.move(just_once, computer, player)
 
         draw_game(WIN, player, ball, computer, score1, score2)
 
