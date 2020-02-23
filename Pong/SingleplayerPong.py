@@ -45,12 +45,11 @@ class Board:
 
 class Ball:
     def __init__(self):
-        self.x = 346
-        self.y = 300
+        self.x = WIN_WIDTH/2
+        self.y = WIN_HEIGHT/2
         self.vel = 0.35  # 0.35
-        self.radius = 6
-        self.tilt = random.randrange(45,135)
-        self.direction = random.randint(1,2)
+        self.tilt = random.randrange(45, 135)
+        self.direction = random.randint(1, 2)
         self.choices = [-45, 45]
 
     def draw(self, win):
@@ -87,8 +86,8 @@ class Ball:
     def reset(self):
         self.tilt = random.randrange(45, 135)
         self.direction = random.randint(1, 2)
-        self.x = 346
-        self.y = 300
+        self.x = WIN_WIDTH / 2
+        self.y = WIN_HEIGHT / 2
         self.vel = 0.35 # 0.35
 
 
@@ -161,7 +160,6 @@ def main():
     score1 = 0
     ball = Ball()
     justonce = True
-    end = False
 
     play_until = 3
     begin = False
@@ -172,14 +170,13 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
-        try:
-            while not begin:
-                start_box = StartBox(250, 350, 'CLICK', 'TO BEGIN')
-                draw_game(WIN, player, ball, computer, score1, score2)
-                begin = start_box.wait_for_click()
 
-        except Exception as err:
-            run = False
+        while not begin:
+            start_box = StartBox(250, 350, 'CLICK', 'TO BEGIN')
+            draw_game(WIN, player, ball, computer, score1, score2)
+            begin = start_box.wait_for_click()
+
+
 
         output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
 
@@ -200,7 +197,7 @@ def main():
             justonce = False
 
         ball.move()
-        if ball.y <= 0 or ball.y >= 590:
+        if ball.y <= 0 or ball.y >= WIN_HEIGHT:
             ball.bounce()
 
         if ball.x <= 0:
@@ -208,7 +205,7 @@ def main():
             justonce = True
             ball.reset()
 
-        if ball.x >= 690:
+        if ball.x >= WIN_WIDTH:
             score1 += 1
             justonce = True
             ball.reset()
