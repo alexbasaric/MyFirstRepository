@@ -8,7 +8,7 @@ import math
 import pickle
 pygame.font.init()
 
-WIN_WIDTH = 700
+WIN_WIDTH = 1200
 WIN_HEIGHT = 600
 
 WIN = pygame.display.set_mode((WIN_WIDTH, WIN_HEIGHT))
@@ -18,6 +18,13 @@ MAIN_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 30)
 FINAL_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 43)
 STAT_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 50)
 SCORE_FONT = pygame.font.Font('BebasNeue-Regular.ttf', 160)
+
+
+COLOR_BLACK = (255, 255, 255)
+COLOR_WHITE = (200, 200, 200)
+COLOR_GREY = (128, 128, 128)
+COLOR_OTHER = (32, 32, 32)
+COLOR_64 = (64, 64, 64)
 
 class Board:
     WIDTH = 10
@@ -46,9 +53,9 @@ class Ball:
         self.direction = random.randint(1,2)
         self.choices = [-45, 45]
 
-    def draw(self, WIN):
+    def draw(self, win):
         try:
-            pygame.draw.rect(WIN, (255, 255, 255), (self.x, self.y, 10, 10))
+            pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, 10, 10))
         except: pass
 
     def bounce(self):
@@ -86,75 +93,68 @@ class Ball:
 
 
 class StartBox:
-    def __init__(self, line1, line2):
-        self.colorBlack = (255, 255, 255)
-        self.colorOther = (200, 200, 200)
-        self.x = 350 - 103
-        self.y = 300 - 103
-        self.w = 206
-        self.h = 206
+    def __init__(self, width, height, line1, line2):
+        self.x = WIN_WIDTH/2 - width/2
+        self.y = WIN_HEIGHT/2 - height/2
+        self.w = width
+        self.h = height
         self.line1 = line1
         self.line2 = line2
-
-
-
 
     def wait_for_click(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 raise Exception("User wants to quit")
 
-        pygame.draw.rect(WIN, self.colorBlack, (self.x, self.w, self.w, self.h))
-        pygame.draw.rect(WIN, self.colorOther, (250, 200, 200, 200))
+        offset = 50
+        pygame.draw.rect(WIN, COLOR_BLACK, (self.x, self.y, self.w, self.h))
+        pygame.draw.rect(WIN, COLOR_WHITE,  (self.x + offset, self.y + offset, self.w - 2*offset, self.h-2*offset))
 
-        text = STAT_FONT.render(self.line1, 1, (32, 32, 32))
+        text = STAT_FONT.render(self.line1, 1, COLOR_OTHER)
         WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 280 - text.get_height() / 2))
-        text = STAT_FONT.render(self.line2, 1, (32, 32, 32))
+        text = STAT_FONT.render(self.line2, 1, COLOR_OTHER)
         WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 320 - text.get_height() / 2))
 
         mousepos = pygame.mouse.get_pos()
         pygame.display.flip()
-        #todo correct mousepos limits to match start box boundaries
-        if mousepos[0] > 247 and mousepos[0] < 453 and mousepos[1] > 198 and mousepos[1] < 405:
+
+        if self.x < mousepos[0] < self.x + self.w and self.y < mousepos[1] < self.y + self.h:
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONUP:
                     return True
 
 
+def draw_title(win):
+    win.fill(COLOR_OTHER)
+    text = MAIN_FONT.render('PONG', 1, COLOR_GREY)
+    win.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 8))
 
 
-def draw_game(WIN, player1_board, ball, player2_board, player1_score, player2_score):
-    WIN.fill([32, 32, 32])
-
-    text = MAIN_FONT.render('PONG', 1, (128, 128, 128))
-    WIN.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 8))
-
-    text = SCORE_FONT.render(str(player1_score), 1, (128, 128, 128))
-    WIN.blit(text, (WIN_WIDTH / 4 - text.get_width() / 2, 300 - text.get_height() / 2))
-
-    text = SCORE_FONT.render(str(player2_score), 1, (128, 128, 128))
-    WIN.blit(text, ((WIN_WIDTH / 4) * 3 - text.get_width() / 2, 300 - text.get_height() / 2))
-
-    pygame.draw.rect(WIN, (64, 64, 64), (350, 45, 2, 700))
-
-    player1_board.draw(WIN)
-    player2_board.draw(WIN)
-    ball.draw(WIN)
+def draw_score(win, player1_score, player2_score):
+    text = SCORE_FONT.render(str(player1_score), 1, COLOR_GREY)
+    win.blit(text, (WIN_WIDTH / 4 - text.get_width() / 2, 300 - text.get_height() / 2))
+    text = SCORE_FONT.render(str(player2_score), 1, COLOR_GREY)
+    win.blit(text, ((WIN_WIDTH / 4) * 3 - text.get_width() / 2, 300 - text.get_height() / 2))
+    pygame.draw.rect(win, COLOR_64, (WIN_WIDTH/2, 45, 2, WIN_WIDTH))
 
 
+def draw_game(win, player1_board, ball, player2_board, player1_score, player2_score):
+    draw_title(win)
+    draw_score(win, player1_score, player2_score)
+    player1_board.draw(win)
+    player2_board.draw(win)
+    ball.draw(win)
 
 
 def main():
 
     global WIN
-
     nets = []
-
     with open('TheAI.pickle', 'rb') as pickle_file:
         x = pickle.load(pickle_file)
     nets.append(x)
 
-    computer = Board(670, 230)
+    computer = Board(WIN_WIDTH - 30, 230)
     player = Board(20, 230)
 
     score2 = 0
@@ -173,9 +173,8 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
         try:
-            start_box = StartBox('CLICK', 'TO BEGIN')
-
             while not begin:
+                start_box = StartBox(250, 350, 'CLICK', 'TO BEGIN')
                 draw_game(WIN, player, ball, computer, score1, score2)
                 begin = start_box.wait_for_click()
 
@@ -248,7 +247,7 @@ def main():
                     run = False
             try:
                 while not begin:
-                    start_box = StartBox('GAME OVER', 'Another?')
+                    start_box = StartBox(350,250,'GAME OVER', 'Another?')
                     draw_game(WIN, player, ball, computer, score1, score2)
                     begin = start_box.wait_for_click()
                     run = True
