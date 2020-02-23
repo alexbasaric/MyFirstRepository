@@ -6,6 +6,8 @@ import pygame
 import random
 import math
 import pickle
+from enum import Enum
+
 pygame.font.init()
 
 WIN_WIDTH = 900
@@ -30,26 +32,60 @@ score2 = 0
 PLAY_UNTIL = 5
 
 
+# The enum Side will be used to determine which side is the paddle (board), left or right
+class Side(Enum):
+    LEFT = 1
+    RIGHT = 2
+
+# Board represents the paddle or bat, on each side of the playing field
 class Board:
     WIDTH = 10
     LENGTH = 140
 
-    def __init__(self, x, y):
-        self.y = y
-        self.x = x
-        self.vel = 0.5  # 0.5
+    # Initialize a paddle on given side of the table
+    def __init__(self, side):
+        if Side.LEFT == side:
+            self.x = 30
+        else:
+            self.x = WIN_WIDTH - 30
 
+        self.y = WIN_HEIGHT/2 - self.LENGTH/2
+
+        self.vel = 0.5  # 0.5
+        self.side = side
+
+    # move paddle up or down
     def move(self, direction):
         if direction == 'up' and self.y >= 0:
             self.y -= self.vel
         elif direction == 'down' and self.y <= WIN_HEIGHT - self.LENGTH:
             self.y += self.vel
 
+    # Draws the paddle
     def draw(self, win):
-        pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, self.WIDTH, self.LENGTH))
+        pygame.draw.rect(win, COLOR_BLACK, (self.x, self.y, self.WIDTH, self.LENGTH))
+
+    # checks coordinates of the ball and the paddle and calculates if there was a hit
+    # returns True if there was a hit
+    def hit_the_ball(self, ball, ):
+        if self.side == Side.LEFT:
+            if self.x + self.WIDTH >= int(ball.x):
+                for i in range(int(self.y), int(self.y + self.LENGTH)):
+                    if int(ball.y) == i:
+                        return True
+        else:
+            if self.x <= int(ball.x) + Board.WIDTH:
+                for i in range(int(self.y), int(self.y + Board.LENGTH)):
+                    if int(ball.y) == i:
+                        return True
+
+        return False
 
 
+# Class Ball represnets the ping pong ball
 class Ball:
+
+    # Initializes the ball, with initial velocity and random angle of movement and direction
     def __init__(self):
         self.x = WIN_WIDTH/2
         self.y = WIN_HEIGHT/2
@@ -58,19 +94,21 @@ class Ball:
         self.direction = random.randint(1, 2)
         self.choices = [-45, 45]
 
+    # Draw the ball on the screen
     def draw(self, win):
-        try:
-            pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, 10, 10))
-        except: pass
+        pygame.draw.rect(win, (255, 255, 255), (self.x, self.y, 10, 10))
 
+    # Bounce the ball of the sides of the playing field
     def bounce(self):
         self.tilt = (180 - self.tilt) % 360
         self.vel *= 1.02  # 1.02
 
+    # bounces the ball of the paddle(board)
     def vertical_bounce(self):
         self.tilt = (360 - self.tilt) % 360
         self.vel *= 1.02  # 1.02
 
+    # initial move of the ball, after the previous point was scored
     def first_move(self):
         self.tilt = random.randrange(45,135)
         self.direction = random.randint(1, 2)
@@ -84,6 +122,7 @@ class Ball:
             self.x += self.vel * math.sin(tilt_radians)
             self.y -= self.vel * math.cos(tilt_radians)
 
+    # Moves the ball in each cycle
     def move(self, just_once, computer, player):
         if just_once:
             self.first_move()
@@ -107,26 +146,8 @@ class Ball:
             score1 += 1
             ret = True
 
-        if self.vel <= 0.9:
-            if player.x + Board.WIDTH == int(self.x):
-                for i in range(int(player.y), int(player.y + Board.LENGTH)):
-                    if int(self.y) == i:
-                        self.vertical_bounce()
-
-            if computer.x == int(self.x) + Board.WIDTH:
-                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
-                    if int(self.y) == i:
-                        self.vertical_bounce()
-        else:
-            if player.x + 10 >= int(self.x):
-                for i in range(int(player.y), int(player.y + Board.LENGTH)):
-                    if int(self.y) == i:
-                        self.vertical_bounce()
-
-            if computer.x <= int(self.x) + Board.WIDTH:
-                for i in range(int(computer.y), int(computer.y + Board.LENGTH)):
-                    if int(self.y) == i:
-                        self.vertical_bounce()
+        if player.hit_the_ball(self) or computer.hit_the_ball(self):
+            self.vertical_bounce()
 
         return ret
 
@@ -138,6 +159,7 @@ class Ball:
         self.vel = 0.35 # 0.35
 
 
+# StartBox represents the box that shows instructions of how to start the game, i.e. click with the mouse
 class StartBox:
     def __init__(self, width, height, game_over):
         self.x = WIN_WIDTH/2 - width/2
@@ -146,11 +168,12 @@ class StartBox:
         self.h = height
         if game_over:
             self.line1 = "Game Over"
-            self.line2 = "Click to play another"
+            self.line2 = "Click here for another game"
         else:
             self.line1 = "Click here"
             self.line2 = "to start game"
 
+    # loops until user clicks inside the box, or closes the window
     def wait_for_click(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -173,13 +196,13 @@ class StartBox:
                 if event.type == pygame.MOUSEBUTTONUP or event.type == pygame.MOUSEBUTTONUP:
                     return True
 
-
+# Draws title of the game
 def draw_title(win):
     win.fill(COLOR_OTHER)
     text = MAIN_FONT.render('PONG', 1, COLOR_GREY)
     win.blit(text, (WIN_WIDTH / 2 - text.get_width() / 2, 8))
 
-
+# Draws score on the screen
 def draw_score(win, player1_score, player2_score):
     text = SCORE_FONT.render(str(player1_score), 1, COLOR_GREY)
     win.blit(text, (WIN_WIDTH / 4 - text.get_width() / 2, 300 - text.get_height() / 2))
@@ -188,14 +211,17 @@ def draw_score(win, player1_score, player2_score):
     pygame.draw.rect(win, COLOR_64, (WIN_WIDTH/2, 45, 2, WIN_WIDTH))
 
 
+# Draws screen after each cycle
 def draw_game(win, player1_board, ball, player2_board, player1_score, player2_score):
     draw_title(win)
     draw_score(win, player1_score, player2_score)
     player1_board.draw(win)
     player2_board.draw(win)
     ball.draw(win)
+    pygame.display.flip()
 
 
+# calculates the computer move using NEAT python AI framework
 def make_computer_move(nets, computer, ball):
     output = nets[0].activate((computer.y - 5, computer.y - ball.y, computer.x - ball.x))
 
@@ -205,7 +231,7 @@ def make_computer_move(nets, computer, ball):
     elif output[0] <= -0.5:
         computer.move('down')
 
-
+# Calculates player move based on key pressed
 def make_player_mover(player):
     keys = pygame.key.get_pressed()
 
@@ -215,6 +241,7 @@ def make_player_mover(player):
         player.move('down')
 
 
+# Main loop
 def main():
 
     global WIN
@@ -225,8 +252,8 @@ def main():
         x = pickle.load(pickle_file)
     nets.append(x)
 
-    computer = Board(WIN_WIDTH - 30, 230)
-    player = Board(20, 230)
+    computer = Board(Side.RIGHT)
+    player = Board(Side.LEFT)
     ball = Ball()
     just_once = True
 
@@ -243,8 +270,6 @@ def main():
         just_once = ball.move(just_once, computer, player)
 
         draw_game(WIN, player, ball, computer, score1, score2)
-
-        pygame.display.flip()
 
         game_over = score1 == PLAY_UNTIL or score2 == PLAY_UNTIL
 
